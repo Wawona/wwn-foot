@@ -7,6 +7,8 @@ in
 stdenv.mkDerivation {
   pname = "foot-watchos-shim";
   version = "1.0.0";
+  # Needs the host Xcode toolchain; opt out of the relaxed nix sandbox.
+  __noChroot = true;
   dontUnpack = true;
   nativeBuildInputs = [ xcodeUtils.findXcodeScript ];
   buildPhase = ''

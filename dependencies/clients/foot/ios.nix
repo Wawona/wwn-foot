@@ -21,6 +21,11 @@ stdenv.mkDerivation {
   pname = "foot-ios-shim";
   version = "1.0.0";
 
+  # Needs the host Xcode toolchain (/Applications, xcode-select), which the
+  # relaxed nix sandbox hides unless the derivation opts out (CI parity with
+  # the other Apple-mobile shims, e.g. weston-simple-shm).
+  __noChroot = true;
+
   dontUnpack = true;
   nativeBuildInputs = [ xcodeUtils.findXcodeScript ];
 
