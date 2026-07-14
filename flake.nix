@@ -49,6 +49,8 @@
         (if isDarwin then {
           foot-ios = tc.buildForIOS "foot" { };
           foot-macos = tc.buildForMacOS "foot" { };
+          # Android/wearOS need androidSDK via Wawona's mkToolchains
+          # (packages.*.foot-android). Match wwn-niri: do not expose here.
         } else { }));
 
       formatter = forAll (system: (pkgsFor system).nixfmt-rfc-style);

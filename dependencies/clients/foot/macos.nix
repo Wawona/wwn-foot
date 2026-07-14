@@ -627,12 +627,15 @@ EOF
     "-Dsystemd-units-dir="
   ];
 
+  # Keep relocatable #!/bin/bash (not a nix-store bash path) for app bundles.
+  dontPatchShebangs = true;
+
   # Environment setup for Wayland
   postInstall = ''
     # Create wrapper script that sets up Wayland environment for Wawona
     mv $out/bin/foot $out/bin/.foot-wrapped
     cat > $out/bin/foot << 'EOF'
-#!/bin/sh
+#!/bin/bash
 # Foot terminal wrapper for Wawona compositor
 export XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/tmp/wawona-$(id -u)}"
 export WAYLAND_DISPLAY="''${WAYLAND_DISPLAY:-wayland-0}"
