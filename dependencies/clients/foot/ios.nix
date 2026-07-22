@@ -41,13 +41,23 @@ stdenv.mkDerivation {
     AR="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar"
 
     cat > foot_shim.c <<'EOF'
-    extern int weston_simple_shm_main(int argc, char **argv);
+    #include <stdlib.h>
+    /* Apple mobile: real foot is not shipped yet. Route fuzzel/Machines
+     * "Foot Terminal" to weston-terminal (in-process zsh), never to
+     * weston-simple-shm (that left users staring at the SHM demo). */
+    extern int weston_terminal_main(int argc, char **argv);
     int wwn_foot_is_compat_shim(void) { return 1; }
     int foot_main(int argc, char **argv) {
       (void)argc;
       (void)argv;
-      char *shim_argv[] = { "weston-simple-shm", 0 };
-      return weston_simple_shm_main(1, shim_argv);
+      const char *shell = getenv("WAWONA_SHELL");
+      char *shim_argv[] = {
+          "weston-terminal",
+          "--shell",
+          (char *)(shell && shell[0] ? shell : "/usr/bin/zsh"),
+          0,
+      };
+      return weston_terminal_main(3, shim_argv);
     }
     EOF
 
@@ -61,7 +71,7 @@ stdenv.mkDerivation {
   '';
 
   meta = with lib; {
-    description = "Foot terminal in-process shim for iOS Wawona (routes to weston-simple-shm)";
+    description = "Foot terminal in-process shim for iOS Wawona (routes to weston-terminal)";
     platforms   = platforms.darwin;
   };
 }

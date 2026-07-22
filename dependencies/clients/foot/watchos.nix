@@ -22,12 +22,19 @@ stdenv.mkDerivation {
     CLANG="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"
     AR="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar"
     cat > foot_shim.c <<'EOF'
-    extern int weston_simple_shm_main(int argc, char **argv);
+    #include <stdlib.h>
+    extern int weston_terminal_main(int argc, char **argv);
     int wwn_foot_is_compat_shim(void) { return 1; }
     int foot_main(int argc, char **argv) {
       (void)argc; (void)argv;
-      char *shim_argv[] = { "weston-simple-shm", 0 };
-      return weston_simple_shm_main(1, shim_argv);
+      const char *shell = getenv("WAWONA_SHELL");
+      char *shim_argv[] = {
+          "weston-terminal",
+          "--shell",
+          (char *)(shell && shell[0] ? shell : "/usr/bin/zsh"),
+          0,
+      };
+      return weston_terminal_main(3, shim_argv);
     }
 EOF
     "$CLANG" -c foot_shim.c -arch arm64 -isysroot "$SDKROOT" ${minVerFlag} -fPIC -o foot_shim.o
