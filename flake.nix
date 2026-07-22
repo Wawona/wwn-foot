@@ -50,6 +50,7 @@
         in
         (if isDarwin then {
           foot-ios = tc.buildForIOS "foot" { };
+          foot-ios-sim = tc.buildForIOS "foot" { simulator = true; };
           foot-macos = tc.buildForMacOS "foot" { };
           # Android/wearOS need androidSDK via Wawona's mkToolchains
           # (packages.*.foot-android). Match wwn-niri: do not expose here.
