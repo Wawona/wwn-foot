@@ -31,9 +31,11 @@
         foot = withPlatformVariants {
           android = footDir + "/android.nix";
           wearos = footDir + "/wearos.nix";
+          # All Apple mobile targets share apple-mobile.nix (real foot_main +
+          # wawona-pty). No weston-terminal shim.
           ios = footDir + "/ios.nix";
           tvos = footDir + "/tvos.nix";
-          ipados = footDir + "/ios.nix";
+          ipados = footDir + "/ipados.nix";
           visionos = footDir + "/visionos.nix";
           watchos = footDir + "/watchos.nix";
           macos = footDir + "/macos.nix";

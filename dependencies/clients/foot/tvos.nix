@@ -1,1 +1,1 @@
-args: import ./ios.nix args
+args: import ./apple-mobile.nix args
