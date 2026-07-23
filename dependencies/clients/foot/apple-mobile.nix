@@ -329,6 +329,23 @@ EOF
       exit 1
     fi
 
+    # Deduplicate archive members. foot's meson build emits some generated
+    # protocol/srgb objects twice (identical content, same basename). A duplicate
+    # member makes a later `ld -r -all_load` (Wawona's privatize step) fail with
+    # duplicate symbols. Extracting overwrites same-named members, leaving one
+    # copy per basename; re-archive a clean copy.
+    _dedup_dir=$(mktemp -d)
+    ( cd "$_dedup_dir" && "$AR_BIN" x $out/lib/libfoot.a )
+    _dedup_objs=$(find "$_dedup_dir" -name '*.o' | sort)
+    if [ -n "$_dedup_objs" ]; then
+      rm -f $out/lib/libfoot.a
+      "$AR_BIN" rcs $out/lib/libfoot.a $_dedup_objs
+      echo "Deduplicated libfoot.a members ($(printf '%s\n' "$_dedup_objs" | wc -l | tr -d ' ') unique objects)"
+    else
+      echo "ERROR: no objects extracted while deduplicating libfoot.a" >&2
+      exit 1
+    fi
+
     cat > $out/include/foot.h <<'EOF'
 #ifndef WAWONA_FOOT_H
 #define WAWONA_FOOT_H
