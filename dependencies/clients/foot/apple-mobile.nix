@@ -307,6 +307,28 @@ EOF
       -o wwn_foot_shim_probe.o
     "$AR_BIN" rcs $out/lib/libfoot.a wwn_foot_shim_probe.o
 
+    # Bundle utf8proc objects so libfoot.a is self-contained. foot 1.26.1's
+    # term_process_and_print_non_ascii references utf8proc_charwidth /
+    # utf8proc_grapheme_break_stateful; utf8proc is only a pkg-config build input
+    # here, so without this the final app link (xcodegen -force_load libfoot.a)
+    # fails with undefined utf8proc symbols on every Apple-mobile target.
+    UTF8PROC_A=$(find ${utf8proc}/lib -name 'libutf8proc*.a' 2>/dev/null | head -n 1)
+    if [ -n "$UTF8PROC_A" ]; then
+      _utf8dir=$(mktemp -d)
+      ( cd "$_utf8dir" && "$AR_BIN" x "$UTF8PROC_A" )
+      _utf8objs=$(find "$_utf8dir" -name '*.o' | tr '\n' ' ')
+      if [ -n "$_utf8objs" ]; then
+        "$AR_BIN" rcs $out/lib/libfoot.a $_utf8objs
+        echo "Bundled utf8proc objects from $UTF8PROC_A into libfoot.a"
+      else
+        echo "ERROR: no objects extracted from $UTF8PROC_A" >&2
+        exit 1
+      fi
+    else
+      echo "ERROR: libutf8proc.a not found under ${utf8proc}/lib" >&2
+      exit 1
+    fi
+
     cat > $out/include/foot.h <<'EOF'
 #ifndef WAWONA_FOOT_H
 #define WAWONA_FOOT_H
