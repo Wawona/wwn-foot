@@ -230,11 +230,117 @@ def patch_spawn_stub() -> None:
     path.write_text(text)
 
 
+def patch_slave_stub() -> None:
+    """slave.c uses fork/execve — unavailable on tvOS/watchOS; stub unused paths."""
+    path = ROOT / "slave.c"
+    text = path.read_text()
+    if "WAWONA_FOOT_APPLE_MOBILE" in text:
+        return
+    guard = """
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#ifndef TARGET_OS_VISION
+#define TARGET_OS_VISION 0
+#endif
+#if TARGET_OS_IPHONE || TARGET_OS_TV || TARGET_OS_WATCH || TARGET_OS_VISION
+#define WAWONA_FOOT_APPLE_MOBILE 1
+#endif
+#endif
+#if defined(WAWONA_FOOT_APPLE_MOBILE)
+#pragma clang diagnostic ignored "-Wunused-function"
+#endif
+"""
+    text = guard + text
+
+    old_exec = """static int
+foot_execvpe(const char *file, char *const argv[], char *const envp[])
+{
+    char *path = find_file_in_path(file);
+    int ret = execve(path, argv, envp);"""
+    new_exec = """static int
+foot_execvpe(const char *file, char *const argv[], char *const envp[])
+{
+#if defined(WAWONA_FOOT_APPLE_MOBILE)
+    (void)file; (void)argv; (void)envp;
+    errno = ENOTSUP;
+    return -1;
+#else
+    char *path = find_file_in_path(file);
+    int ret = execve(path, argv, envp);"""
+    if old_exec not in text:
+        raise SystemExit("foot_execvpe() body not found in slave.c")
+    text = text.replace(old_exec, new_exec, 1)
+
+    exec_close = """    free(path);
+    return ret;
+}
+
+#else   /* EXECVPE */"""
+    exec_close_repl = """    free(path);
+    return ret;
+#endif /* !WAWONA_FOOT_APPLE_MOBILE */
+}
+
+#else   /* EXECVPE */"""
+    if exec_close not in text:
+        raise SystemExit("foot_execvpe() epilogue not found in slave.c")
+    text = text.replace(exec_close, exec_close_repl, 1)
+
+    old_spawn = """pid_t
+slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
+            const char *const *envp, const env_var_list_t *extra_env_vars,
+            const char *term_env, const char *conf_shell, bool login_shell,
+            const user_notifications_t *notifications)
+{
+    int fork_pipe[2];
+    if (pipe2(fork_pipe, O_CLOEXEC) < 0) {"""
+    new_spawn = """pid_t
+slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
+            const char *const *envp, const env_var_list_t *extra_env_vars,
+            const char *term_env, const char *conf_shell, bool login_shell,
+            const user_notifications_t *notifications)
+{
+#if defined(WAWONA_FOOT_APPLE_MOBILE)
+    (void)ptmx; (void)argc; (void)cwd; (void)argv; (void)envp;
+    (void)extra_env_vars; (void)term_env; (void)conf_shell;
+    (void)login_shell; (void)notifications;
+    errno = ENOTSUP;
+    LOG_ERR("slave_spawn/fork unsupported on Apple mobile");
+    return -1;
+#else
+    int fork_pipe[2];
+    if (pipe2(fork_pipe, O_CLOEXEC) < 0) {"""
+    if old_spawn not in text:
+        raise SystemExit("slave_spawn() body not found in slave.c")
+    text = text.replace(old_spawn, new_spawn, 1)
+
+    spawn_end = """        break;
+    }
+    }
+
+    return pid;
+}
+"""
+    spawn_end_repl = """        break;
+    }
+    }
+
+    return pid;
+#endif /* !WAWONA_FOOT_APPLE_MOBILE */
+}
+"""
+    if spawn_end not in text:
+        raise SystemExit("slave_spawn() epilogue not found in slave.c")
+    text = text.replace(spawn_end, spawn_end_repl, 1)
+    path.write_text(text)
+
+
 def main() -> int:
     patch_main()
     patch_meson()
     patch_terminal()
     patch_spawn_stub()
+    patch_slave_stub()
     # Shim probe symbol compiled separately into the archive by apple-mobile.nix
     print("patched foot for Apple mobile (foot_main + wawona-pty + static lib)")
     return 0
