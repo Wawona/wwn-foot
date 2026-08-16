@@ -1,5 +1,7 @@
 # wwn-foot
 
+[![CI](https://github.com/Wawona/wwn-foot/actions/workflows/ci.yml/badge.svg)](https://github.com/Wawona/wwn-foot/actions/workflows/ci.yml)
+
 Wawona's [foot](https://codeberg.org/dnkl/foot) terminal port, cross-compiled
 in-process for Apple platforms (iOS/iPadOS/tvOS/watchOS/visionOS) and Android.
 
