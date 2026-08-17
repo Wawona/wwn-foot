@@ -622,6 +622,9 @@ EOF
     "-Dthemes=false"
     "-Dime=false"
     "-Dterminfo=disabled"
+    # macOS (and the app sandbox) have no `foot` terminfo. Without this,
+    # shells get TERM=foot → "unknown terminal type" and broken erase/clear.
+    "-Ddefault-terminfo=xterm-256color"
     "-Dtests=false"
     # Disable systemd (Linux-only)
     "-Dsystemd-units-dir="

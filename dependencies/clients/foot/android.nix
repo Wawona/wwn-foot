@@ -184,6 +184,7 @@ pkgs.stdenv.mkDerivation (applySandbox {
       -Dthemes=false \
       -Dime=false \
       -Dterminfo=disabled \
+      -Ddefault-terminfo=xterm-256color \
       -Dtests=false \
       -Dsystemd-units-dir=
     runHook postConfigure

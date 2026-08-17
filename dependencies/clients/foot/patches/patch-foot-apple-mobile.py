@@ -140,7 +140,13 @@ extern char **environ;
                 LOG_ERR("wawona-pty slave fd missing");
                 goto err;
             }
-            setenv("TERM", conf->term, 1);
+            setenv("TERM",
+                   (conf->term && conf->term[0] &&
+                    strcmp(conf->term, "foot") != 0 &&
+                    strcmp(conf->term, "foot-extra") != 0)
+                       ? conf->term
+                       : "xterm-256color",
+                   1);
             setenv("COLORTERM", "truecolor", 1);
             term->slave = wwn_pty_spawn_shell_paced(
                 shell_path, spawn_argv, apple_slave_fd, -1, environ);
