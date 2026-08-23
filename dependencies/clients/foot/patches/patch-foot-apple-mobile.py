@@ -174,6 +174,87 @@ extern char **environ;
     if old_spawn not in text:
         raise SystemExit("slave_spawn block not found in terminal.c")
     text = text.replace(old_spawn, new_spawn, 1)
+
+    old_winsz = """    if (ioctl(ptmx, (unsigned int)TIOCSWINSZ,
+              &(struct winsize){.ws_row = 24, .ws_col = 80}) < 0)
+    {
+        LOG_ERRNO("failed to set initial TIOCSWINSZ");
+        goto close_fds;
+    }"""
+    new_winsz = """#if defined(WAWONA_FOOT_APPLE_MOBILE)
+    /* socketpair PTY is not a TTY; TIOCSWINSZ is ENOTTY/EINVAL. Keep going. */
+    if (wwn_pty_set_winsize(ptmx, &(struct winsize){.ws_row = 24, .ws_col = 80}) < 0)
+        LOG_ERRNO("failed to set initial TIOCSWINSZ (ignored on Apple mobile)");
+#else
+    if (ioctl(ptmx, (unsigned int)TIOCSWINSZ,
+              &(struct winsize){.ws_row = 24, .ws_col = 80}) < 0)
+    {
+        LOG_ERRNO("failed to set initial TIOCSWINSZ");
+        goto close_fds;
+    }
+#endif"""
+    if old_winsz not in text:
+        raise SystemExit("initial TIOCSWINSZ block not found in terminal.c")
+    text = text.replace(old_winsz, new_winsz, 1)
+    path.write_text(text)
+
+
+def patch_render() -> None:
+    """Interactive resize also ioctl(TIOCSWINSZ); same socketpair ENOTTY."""
+    path = ROOT / "render.c"
+    text = path.read_text()
+    if "wwn_pty_set_winsize" in text:
+        return
+
+    include = """
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#ifndef TARGET_OS_VISION
+#define TARGET_OS_VISION 0
+#endif
+#if TARGET_OS_IPHONE || TARGET_OS_TV || TARGET_OS_WATCH || TARGET_OS_VISION
+#include "wwn_pty.h"
+#define WAWONA_FOOT_APPLE_MOBILE 1
+#endif
+#endif
+"""
+    anchor = '#include <sys/ioctl.h>'
+    if anchor not in text:
+        raise SystemExit("sys/ioctl.h include missing in render.c")
+    text = text.replace(anchor, anchor + include, 1)
+
+    old = """        if (ioctl(term->ptmx, (unsigned int)TIOCSWINSZ,
+                     &(struct winsize){
+                         .ws_row = term->rows,
+                         .ws_col = term->cols,
+                         .ws_xpixel = term->cols * term->cell_width,
+                         .ws_ypixel = term->rows * term->cell_height}) < 0)
+        {
+            LOG_ERRNO("TIOCSWINSZ");
+        }"""
+    new = """#if defined(WAWONA_FOOT_APPLE_MOBILE)
+        if (wwn_pty_set_winsize(term->ptmx, &(struct winsize){
+                         .ws_row = (unsigned short)term->rows,
+                         .ws_col = (unsigned short)term->cols,
+                         .ws_xpixel = (unsigned short)(term->cols * term->cell_width),
+                         .ws_ypixel = (unsigned short)(term->rows * term->cell_height)}) < 0)
+        {
+            LOG_ERRNO("TIOCSWINSZ (ignored on Apple mobile)");
+        }
+#else
+        if (ioctl(term->ptmx, (unsigned int)TIOCSWINSZ,
+                     &(struct winsize){
+                         .ws_row = term->rows,
+                         .ws_col = term->cols,
+                         .ws_xpixel = term->cols * term->cell_width,
+                         .ws_ypixel = term->rows * term->cell_height}) < 0)
+        {
+            LOG_ERRNO("TIOCSWINSZ");
+        }
+#endif"""
+    if old not in text:
+        raise SystemExit("tiocswinsz() ioctl block not found in render.c")
+    text = text.replace(old, new, 1)
     path.write_text(text)
 
 
@@ -345,6 +426,7 @@ def main() -> int:
     patch_main()
     patch_meson()
     patch_terminal()
+    patch_render()
     patch_spawn_stub()
     patch_slave_stub()
     # Shim probe symbol compiled separately into the archive by apple-mobile.nix

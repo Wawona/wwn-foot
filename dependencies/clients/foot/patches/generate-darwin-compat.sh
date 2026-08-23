@@ -353,8 +353,9 @@ static inline int foot_ioctl_compat(int fd, unsigned long request, ...) {
     va_end(args);
     
     int ret = ioctl(fd, request, argp);
-    if (ret == -1 && errno == ENOTTY && request == TIOCSWINSZ) {
-        return 0; // Fake success for TIOCSWINSZ on macOS PTY
+    if (ret == -1 && request == TIOCSWINSZ &&
+        (errno == ENOTTY || errno == EINVAL || errno == ENODEV)) {
+        return 0; /* socketpair PTY on Darwin is not a TTY */
     }
     return ret;
 }
